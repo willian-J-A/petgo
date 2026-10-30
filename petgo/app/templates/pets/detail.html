@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Pet #{{ pet.id }} — PetGo{% endblock %}
+{% block content %}
+<div style="max-width:680px;margin:0 auto">
+  <div class="card">
+    <div class="card__body">
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.75rem">
+        <span class="badge badge--{{ pet.status|lower|replace('_','-') }}">{{ pet.status }}</span>
+        {% if pet.risk_status == 'APPROVED' %}<span class="badge badge--risk">⚠ Risco aprovado</span>{% endif %}
+        {% if pet.risk_status == 'PENDING' %}<span class="badge badge--risk">⚠ Risco relatado (não verificado)</span>{% endif %}
+      </div>
+
+      <h1 style="font-size:1.4rem;margin-bottom:.25rem">{{ pet.species }} — {{ pet.city }}/{{ pet.state }}</h1>
+      <p style="color:var(--color-muted);font-size:.85rem">Publicado em {{ pet.created_at[:10] }}</p>
+
+      {% if pet.size %}<p><strong>Porte:</strong> {{ pet.size }}</p>{% endif %}
+      {% if pet.sex %}<p><strong>Sexo:</strong> {{ pet.sex }}</p>{% endif %}
+      {% if pet.age_months %}<p><strong>Idade:</strong> ~{{ (pet.age_months // 12) }}a {{ (pet.age_months % 12) }}m</p>{% endif %}
+
+      <p style="margin-top:1rem">{{ pet.description }}</p>
+
+      <div style="margin-top:1.5rem;display:flex;gap:.75rem;flex-wrap:wrap">
+        {% if pet.status == 'NEEDS_RESCUE' and current_user.is_authenticated %}
+          <a href="#" class="btn btn--danger">🚨 Assumir resgate (ONG)</a>
+        {% endif %}
+        {% if pet.status == 'AVAILABLE' and current_user.is_authenticated %}
+          <a href="#" class="btn btn--primary">💚 Solicitar adoção</a>
+          <p style="font-size:.8rem;color:var(--color-muted);margin-top:.5rem">
+            A aprovação não é a entrega — você precisará confirmar o recebimento do animal.
+          </p>
+        {% endif %}
+        {% if pet.status == 'NEEDS_RESCUE' and current_user.is_authenticated %}
+          <a href="#" class="btn btn--outline">⚡ Adoção direta</a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

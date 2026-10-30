@@ -1,0 +1,220 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  PetGo MVP - deploy completo em uma unica instancia EC2 Windows.
+  Provisiona a instancia, abre a porta da aplicacao, baixa o codigo do
+  GitHub, instala Python + dependencias, inicializa o banco SQLite, roda o
+  seed de demonstracao (Luna, Simba, Thor, Nina, ONGs) e sobe o app com
+  waitress como tarefa agendada que inicia no boot.
+  Saida: URL de acesso http://<ip-publico>:<porta>.
+
+Parameters:
+  RepoUrl:
+    Type: String
+    Default: https://github.com/willian-J-A/petgo.git
+    Description: Repositorio git com o codigo do PetGo.
+  RepoBranch:
+    Type: String
+    Default: main
+    Description: Branch a ser clonada.
+  AppSubdir:
+    Type: String
+    Default: petgo
+    Description: >
+      Subpasta do repositorio onde esta a aplicacao (requirements-aws.txt,
+      run_aws.py, seed_aws.py). Use "." se o app estiver na raiz.
+  AppPort:
+    Type: Number
+    Default: 8080
+    Description: Porta HTTP exposta pela aplicacao.
+  InstanceType:
+    Type: String
+    Default: t3.small
+    AllowedValues: [t3.small, t3.medium, t3.large]
+    Description: Tamanho da instancia EC2.
+  WindowsAmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-windows-latest/Windows_Server-2025-English-Full-Base
+    Description: >
+      AMI do Windows Server resolvida automaticamente pelo SSM Parameter Store
+      (sempre a mais recente). Nao editar manualmente.
+  AllowedCidr:
+    Type: String
+    Default: 0.0.0.0/0
+    Description: Faixa CIDR autorizada a acessar a aplicacao (e RDP).
+  EnableRdp:
+    Type: String
+    Default: "false"
+    AllowedValues: ["true", "false"]
+    Description: Abrir a porta 3389 (RDP) para administracao.
+  KeyName:
+    Type: String
+    Default: ""
+    Description: >
+      (Opcional) Nome de um key pair EC2 existente, necessario apenas se quiser
+      recuperar a senha de Administrator por RDP. Deixe vazio se nao usar.
+
+Conditions:
+  HasKey: !Not [!Equals [!Ref KeyName, ""]]
+  RdpOn: !Equals [!Ref EnableRdp, "true"]
+
+Resources:
+  PetGoSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: PetGo - acesso HTTP da aplicacao (e RDP opcional)
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: !Ref AppPort
+          ToPort: !Ref AppPort
+          CidrIp: !Ref AllowedCidr
+          Description: PetGo app
+      Tags:
+        - Key: Name
+          Value: petgo-sg
+
+  PetGoRdpIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Condition: RdpOn
+    Properties:
+      GroupId: !Ref PetGoSecurityGroup
+      IpProtocol: tcp
+      FromPort: 3389
+      ToPort: 3389
+      CidrIp: !Ref AllowedCidr
+      Description: RDP admin
+
+  PetGoInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref InstanceType
+      ImageId: !Ref WindowsAmiId
+      SecurityGroupIds:
+        - !Ref PetGoSecurityGroup
+      KeyName: !If [HasKey, !Ref KeyName, !Ref "AWS::NoValue"]
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeSize: 40
+            VolumeType: gp3
+            Encrypted: true
+            DeleteOnTermination: true
+      Tags:
+        - Key: Name
+          Value: petgo-app
+      UserData:
+        Fn::Base64: !Sub |
+          <powershell>
+          $ErrorActionPreference = "Stop"
+          $log = "C:\petgo-bootstrap.log"
+          function Log($m) { "$(Get-Date -Format o)  $m" | Tee-Object -FilePath $log -Append }
+
+          try {
+            Log "Inicio do bootstrap PetGo"
+            $app   = "C:\petgo"
+            $port  = "${AppPort}"
+            $repo  = "${RepoUrl}"
+            $branch= "${RepoBranch}"
+            $subdir= "${AppSubdir}"
+
+            # --- 1. Instalar Git e Python via winget/choco fallback ---
+            Log "Instalando Chocolatey"
+            Set-ExecutionPolicy Bypass -Scope Process -Force
+            [System.Net.ServicePointManager]::SecurityProtocol = 3072
+            iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+            $env:Path += ";C:\ProgramData\chocolatey\bin"
+
+            Log "Instalando git e python"
+            choco install -y --no-progress git python311 | Out-Null
+            $env:Path += ";C:\Program Files\Git\cmd;C:\Python311;C:\Python311\Scripts"
+
+            # --- 2. Clonar o repositorio ---
+            Log "Clonando $repo ($branch)"
+            & "C:\Program Files\Git\cmd\git.exe" clone --branch $branch --depth 1 $repo C:\petgo-src
+
+            $src = "C:\petgo-src"
+            if ($subdir -ne ".") { $src = Join-Path $src $subdir }
+            Copy-Item -Recurse -Force $src $app
+
+            Set-Location $app
+
+            # --- 3. Virtualenv + dependencias ---
+            Log "Criando venv e instalando dependencias"
+            & "C:\Python311\python.exe" -m venv "$app\venv_aws"
+            & "$app\venv_aws\Scripts\python.exe" -m pip install --upgrade pip
+            $reqs = if (Test-Path "$app\requirements-aws.txt") { "requirements-aws.txt" } else { "requirements.txt" }
+            & "$app\venv_aws\Scripts\python.exe" -m pip install -r "$app\$reqs"
+
+            # --- 4. Arquivo de ambiente (.env.aws) com segredos gerados ---
+            Log "Gerando .env.aws"
+            $ip = (Invoke-RestMethod -Uri "http://169.254.169.254/latest/meta-data/public-ipv4" -Headers @{ } -TimeoutSec 5 -ErrorAction SilentlyContinue)
+            $sk = & "$app\venv_aws\Scripts\python.exe" -c "import secrets;print(secrets.token_hex(32))"
+            $vk = & "$app\venv_aws\Scripts\python.exe" -c "import secrets,base64;print(base64.b64encode(secrets.token_bytes(32)).decode())"
+            @"
+          APP_ENV=production
+          SECRET_KEY=$sk
+          DATABASE_URL=sqlite:///petgo_aws.db
+          VOUCHER_ENCRYPTION_KEY=$vk
+          PUBLIC_BASE_URL=http://$($ip):$port
+          PORT=$port
+          AWS_REGION=${AWS::Region}
+          MEDIA_BUCKET=
+          BACKUP_BUCKET=
+          SMTP_HOST=
+          SMTP_PORT=587
+          SMTP_USERNAME=
+          SMTP_PASSWORD=
+          EMAIL_FROM=noreply@petgo.local
+          "@ | Out-File -FilePath "$app\.env.aws" -Encoding ascii
+
+            # --- 5. Inicializar banco + seed ---
+            Log "Inicializando banco e seed"
+            & "$app\venv_aws\Scripts\python.exe" "$app\run_aws.py" initdb
+            if (Test-Path "$app\seed_aws.py") {
+              & "$app\venv_aws\Scripts\python.exe" "$app\seed_aws.py"
+            }
+
+            # --- 6. Firewall ---
+            Log "Abrindo firewall na porta $port"
+            New-NetFirewallRule -DisplayName "PetGo $port" -Direction Inbound -Action Allow -Protocol TCP -LocalPort $port -ErrorAction SilentlyContinue
+
+            # --- 7. Tarefa agendada: inicia o app no boot ---
+            Log "Registrando tarefa agendada de inicializacao"
+            $runCmd = "`"$app\venv_aws\Scripts\python.exe`" `"$app\run_aws.py`""
+            $action  = New-ScheduledTaskAction -Execute "$app\venv_aws\Scripts\python.exe" -Argument "`"$app\run_aws.py`"" -WorkingDirectory $app
+            $trigger = New-ScheduledTaskTrigger -AtStartup
+            $principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+            $settings = New-ScheduledTaskSettingsSet -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) -StartWhenAvailable
+            Register-ScheduledTask -TaskName "PetGo" -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force
+
+            # --- 8. Subir agora ---
+            Log "Iniciando PetGo"
+            Start-ScheduledTask -TaskName "PetGo"
+
+            Log "Bootstrap concluido. Sinalizando sucesso ao CloudFormation."
+            cfn-signal.exe --success true --stack ${AWS::StackName} --resource PetGoInstance --region ${AWS::Region}
+          }
+          catch {
+            Log "ERRO: $($_.Exception.Message)"
+            cfn-signal.exe --success false --stack ${AWS::StackName} --resource PetGoInstance --region ${AWS::Region}
+            throw
+          }
+          </powershell>
+          <persist>true</persist>
+    CreationPolicy:
+      ResourceSignal:
+        Timeout: PT25M
+        Count: 1
+
+Outputs:
+  AccessUrl:
+    Description: Link de acesso a aplicacao PetGo
+    Value: !Sub "http://${PetGoInstance.PublicIp}:${AppPort}"
+  PublicIp:
+    Description: IP publico da instancia
+    Value: !GetAtt PetGoInstance.PublicIp
+  InstanceId:
+    Description: ID da instancia EC2
+    Value: !Ref PetGoInstance
+  HealthCheck:
+    Description: Endpoint de verificacao de saude
+    Value: !Sub "http://${PetGoInstance.PublicIp}:${AppPort}/health/ready"

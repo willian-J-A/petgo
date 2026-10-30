@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% block title %}Publicar animal — PetGo{% endblock %}
+{% block content %}
+<div style="max-width:620px;margin:0 auto">
+  <h1 style="margin-bottom:1.5rem">📢 Publicar animal</h1>
+
+  <div class="card" style="padding:1.5rem">
+    <input type="hidden" id="csrf" value="{{ csrf_token() }}">
+
+    <div class="form-group">
+      <label for="species">Espécie <span aria-hidden="true" style="color:var(--color-danger)">*</span></label>
+      <select id="species" required aria-required="true">
+        <option value="">Selecione</option>
+        <option value="DOG">Cão</option>
+        <option value="CAT">Gato</option>
+        <option value="OTHER">Outro</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="help_type">Tipo de ajuda <span aria-hidden="true" style="color:var(--color-danger)">*</span></label>
+      <select id="help_type" required aria-required="true" onchange="toggleRescueFields()">
+        <option value="">Selecione</option>
+        <option value="RESCUE">Resgate 🚨</option>
+        <option value="ADOPTION">Adoção 💚</option>
+        <option value="TREATMENT">Tratamento 🏥</option>
+        <option value="FOSTER">Lar temporário 🏠</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="description">Descrição <span aria-hidden="true" style="color:var(--color-danger)">*</span></label>
+      <textarea id="description" rows="4" required aria-required="true" placeholder="Descreva o animal, situação e localização aproximada..."></textarea>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 80px;gap:1rem">
+      <div class="form-group">
+        <label for="city">Cidade <span aria-hidden="true" style="color:var(--color-danger)">*</span></label>
+        <input type="text" id="city" required>
+      </div>
+      <div class="form-group">
+        <label for="state">UF <span aria-hidden="true" style="color:var(--color-danger)">*</span></label>
+        <input type="text" id="state" maxlength="2" placeholder="SP">
+      </div>
+    </div>
+
+    <div id="rescue-fields" style="display:none">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+        <div class="form-group">
+          <label for="latitude">Latitude <span aria-hidden="true" style="color:var(--color-danger)">*</span></label>
+          <input type="number" id="latitude" step="any" placeholder="-21.17">
+        </div>
+        <div class="form-group">
+          <label for="longitude">Longitude <span aria-hidden="true" style="color:var(--color-danger)">*</span></label>
+          <input type="number" id="longitude" step="any" placeholder="-47.81">
+        </div>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer">
+        <input type="checkbox" id="risk_reported">
+        <span>⚠ Situação de risco</span>
+      </label>
+    </div>
+
+    <div id="risk-detail" style="display:none" class="form-group">
+      <label for="risk_description">Descreva o risco</label>
+      <textarea id="risk_description" rows="2" placeholder="Ex: animal circulando entre veículos em avenida movimentada."></textarea>
+    </div>
+
+    <div class="form-group">
+      <label for="size">Porte (opcional)</label>
+      <select id="size">
+        <option value="">Desconhecido</option>
+        <option value="SMALL">Pequeno</option>
+        <option value="MEDIUM">Médio</option>
+        <option value="LARGE">Grande</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="sex">Sexo (opcional)</label>
+      <select id="sex">
+        <option value="">Desconhecido</option>
+        <option value="M">Macho</option>
+        <option value="F">Fêmea</option>
+      </select>
+    </div>
+
+    <div id="form-error" class="alert alert--danger" style="display:none" role="alert"></div>
+
+    <button class="btn btn--primary" style="width:100%;margin-top:.5rem" onclick="submitPet()">
+      Publicar e ganhar +5 pontos
+    </button>
+  </div>
+</div>
+
+<script>
+document.getElementById('risk_reported').addEventListener('change', e => {
+  document.getElementById('risk-detail').style.display = e.target.checked ? 'block' : 'none';
+});
+
+function toggleRescueFields() {
+  const v = document.getElementById('help_type').value;
+  document.getElementById('rescue-fields').style.display = v === 'RESCUE' ? 'block' : 'none';
+}
+
+async function submitPet() {
+  const errEl = document.getElementById('form-error');
+  errEl.style.display = 'none';
+
+  const body = {
+    species: document.getElementById('species').value,
+    help_type: document.getElementById('help_type').value,
+    description: document.getElementById('description').value,
+    city: document.getElementById('city').value,
+    state: document.getElementById('state').value,
+    size: document.getElementById('size').value || undefined,
+    sex: document.getElementById('sex').value || undefined,
+    media_ids: [],  // upload de mídia seria feito em passo separado
+    risk_reported: document.getElementById('risk_reported').checked,
+    risk_description: document.getElementById('risk_description').value || undefined,
+  };
+
+  if (body.help_type === 'RESCUE') {
+    body.latitude = parseFloat(document.getElementById('latitude').value) || undefined;
+    body.longitude = parseFloat(document.getElementById('longitude').value) || undefined;
+  }
+
+  // Aviso sobre mídia
+  if (body.media_ids.length === 0) {
+    errEl.textContent = 'Upload de foto obrigatório. Use a API /api/v1/media para enviar antes de publicar.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  const idemKey = 'pet-' + Date.now();
+  const res = await fetch('/api/v1/pets', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': document.getElementById('csrf').value,
+      'Idempotency-Key': idemKey,
+    },
+    body: JSON.stringify(body),
+  });
+
+  const data = await res.json();
+  if (res.ok) {
+    window.location.href = `/pets/${data.id}`;
+  } else {
+    errEl.textContent = data?.error?.message || 'Erro ao publicar.';
+    errEl.style.display = 'block';
+  }
+}
+</script>
+{% endblock %}

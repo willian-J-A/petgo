@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}PetGo — Ajude um animal hoje{% endblock %}
+{% block content %}
+<section class="hero">
+  <h1 class="hero__title">Cada gesto salva uma vida 🐾</h1>
+  <p class="hero__subtitle">Conectamos pessoas, ONGs e empresas para resgatar e adotar animais com responsabilidade.</p>
+  <div class="hero__ctas">
+    <a href="{{ url_for('web.rescue_list') }}" class="btn btn--danger">🚨 Precisa de resgate</a>
+    <a href="{{ url_for('web.adoption_list') }}" class="btn btn--primary">💚 Quero adotar</a>
+  </div>
+</section>
+
+<section style="margin-top:2rem">
+  <h2 style="margin-bottom:1rem">Como funciona</h2>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1rem">
+    <div class="card"><div class="card__body">
+      <h3>📢 Publique</h3>
+      <p style="font-size:.9rem;color:var(--color-muted);margin-top:.5rem">Registre um animal que precisa de ajuda e ganhe +5 pontos.</p>
+    </div></div>
+    <div class="card"><div class="card__body">
+      <h3>🏠 Resgate</h3>
+      <p style="font-size:.9rem;color:var(--color-muted);margin-top:.5rem">ONGs aprovadas assumem o atendimento e confirmam o resgate.</p>
+    </div></div>
+    <div class="card"><div class="card__body">
+      <h3>❤️ Adote</h3>
+      <p style="font-size:.9rem;color:var(--color-muted);margin-top:.5rem">Solicite adoção e confirme a entrega para concluir o processo.</p>
+    </div></div>
+    <div class="card"><div class="card__body">
+      <h3>🎁 Troque pontos</h3>
+      <p style="font-size:.9rem;color:var(--color-muted);margin-top:.5rem">Use seus pontos para resgatar benefícios de parceiros.</p>
+    </div></div>
+  </div>
+</section>
+{% endblock %}

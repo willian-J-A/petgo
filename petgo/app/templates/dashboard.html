@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}Minha conta — PetGo{% endblock %}
+{% block content %}
+<h1 style="margin-bottom:1.5rem">Olá, {{ current_user.name.split()[0] }} 👋</h1>
+
+{% if not current_user.email_verified %}
+<div class="alert alert--warning">
+  ⚠ Seu e-mail ainda não foi verificado. Verifique sua caixa de entrada para liberar publicações e trocas.
+</div>
+{% endif %}
+
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:1.25rem;margin-bottom:2rem">
+
+  <!-- Carteira pessoal -->
+  <div class="card">
+    <div class="card__body">
+      <h2 style="font-size:1rem;margin-bottom:.5rem">💰 Carteira pessoal</h2>
+      <p class="wallet-balance">{{ wallet.balance }} pts</p>
+      <p class="wallet-subtitle">saldo disponível</p>
+      <div style="display:flex;gap:.5rem;margin-top:1rem;flex-wrap:wrap">
+        <a href="{{ url_for('web.wallet_entries') }}" class="btn btn--outline" style="font-size:.85rem">Ver extrato</a>
+        <a href="{{ url_for('web.rewards_list') }}" class="btn btn--primary" style="font-size:.85rem">🎁 Trocar pontos</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Meus pedidos de adoção -->
+  <div class="card">
+    <div class="card__body">
+      <h2 style="font-size:1rem;margin-bottom:.75rem">📋 Meus pedidos</h2>
+      {% if adoptions %}
+        <ul style="list-style:none;font-size:.9rem">
+          {% for a in adoptions[:5] %}
+          <li style="padding:.3rem 0;border-bottom:1px solid var(--color-border)">
+            Pet #{{ a.pet_id }} —
+            <span class="badge badge--{{ a.status|lower|replace('_','-') }}" style="font-size:.75rem">{{ a.status }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p style="color:var(--color-muted);font-size:.9rem">Nenhum pedido ainda.</p>
+      {% endif %}
+      <a href="{{ url_for('web.adoption_list') }}" class="btn btn--outline" style="margin-top:1rem;font-size:.85rem">Ver animais</a>
+    </div>
+  </div>
+
+  <!-- Publicar animal -->
+  <div class="card">
+    <div class="card__body">
+      <h2 style="font-size:1rem;margin-bottom:.5rem">📢 Publicar animal</h2>
+      <p style="font-size:.85rem;color:var(--color-muted);margin-bottom:1rem">
+        Registre um animal que precisa de ajuda e ganhe +5 pontos.
+      </p>
+      {% if current_user.email_verified %}
+        <a href="{{ url_for('web.new_pet') }}" class="btn btn--primary" style="font-size:.85rem">Publicar</a>
+      {% else %}
+        <button class="btn btn--outline" disabled style="font-size:.85rem" title="Verifique seu e-mail primeiro">Publicar</button>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Vouchers -->
+  <div class="card">
+    <div class="card__body">
+      <h2 style="font-size:1rem;margin-bottom:.5rem">🎟 Meus vouchers</h2>
+      {% if redemptions %}
+        <ul style="list-style:none;font-size:.9rem">
+          {% for r in redemptions[:5] %}
+          <li style="padding:.3rem 0;border-bottom:1px solid var(--color-border)">
+            Troca #{{ r.id }} —
+            <span class="badge" style="font-size:.75rem;background:#f3e8ff;color:#6b21a8">{{ r.status }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p style="color:var(--color-muted);font-size:.9rem">Nenhuma troca ainda.</p>
+      {% endif %}
+      <a href="{{ url_for('web.rewards_list') }}" class="btn btn--outline" style="margin-top:1rem;font-size:.85rem">Explorar prêmios</a>
+    </div>
+  </div>
+
+</div>
+
+<!-- ONGs vinculadas -->
+{% if ngo_memberships %}
+<h2 style="margin-bottom:1rem">🏢 Minhas ONGs</h2>
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:1rem;margin-bottom:2rem">
+  {% for m in ngo_memberships %}
+  <div class="card">
+    <div class="card__body">
+      <h3 style="font-size:1rem">{{ m.ngo.name }}</h3>
+      <p style="font-size:.8rem;color:var(--color-muted)">{{ m.ngo.verification_status }} · {{ m.role }}</p>
+      <a href="{{ url_for('web.ngo_dashboard', ngo_id=m.ngo_id) }}" class="btn btn--outline" style="margin-top:.75rem;font-size:.85rem">Painel da ONG</a>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Admin -->
+{% if current_user.is_admin %}
+<div class="card" style="border-left:4px solid var(--color-danger)">
+  <div class="card__body">
+    <h2 style="font-size:1rem;margin-bottom:.5rem">🔧 Painel administrativo</h2>
+    <div style="display:flex;gap:.75rem;flex-wrap:wrap">
+      <a href="{{ url_for('web.admin_panel') }}" class="btn btn--danger" style="font-size:.85rem">Abrir painel admin</a>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Cadastro — PetGo{% endblock %}
+{% block content %}
+<div style="max-width:480px;margin:2rem auto">
+  <h1 style="margin-bottom:1.5rem">Criar conta</h1>
+  <form id="register-form" class="card" style="padding:1.5rem">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="form-group">
+      <label for="name">Nome completo</label>
+      <input type="text" id="name" name="name" required autocomplete="name">
+    </div>
+    <div class="form-group">
+      <label for="email">E-mail</label>
+      <input type="email" id="email" name="email" required autocomplete="email">
+    </div>
+    <div class="form-group">
+      <label for="password">Senha <span style="font-weight:400;font-size:.8rem">(mínimo 8 caracteres)</span></label>
+      <input type="password" id="password" name="password" required minlength="8" autocomplete="new-password">
+    </div>
+    <div class="form-group">
+      <label for="city">Cidade</label>
+      <input type="text" id="city" name="city" required>
+    </div>
+    <div class="form-group">
+      <label for="state">Estado (UF)</label>
+      <input type="text" id="state" name="state" required maxlength="2" placeholder="SP">
+    </div>
+    <div id="form-error" role="alert" style="display:none" class="alert alert--danger"></div>
+    <button type="submit" class="btn btn--primary" style="width:100%;margin-top:.5rem">Cadastrar</button>
+    <p style="margin-top:1rem;text-align:center;font-size:.9rem">
+      Já tem conta? <a href="{{ url_for('web.login') }}">Entrar</a>
+    </p>
+  </form>
+</div>
+<script>
+document.getElementById('register-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const form = e.target;
+  const errEl = document.getElementById('form-error');
+  errEl.style.display = 'none';
+
+  const body = {
+    name: form.name.value,
+    email: form.email.value,
+    password: form.password.value,
+    city: form.city.value,
+    state: form.state.value,
+  };
+
+  const res = await fetch('/api/v1/users', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': form.csrf_token.value },
+    body: JSON.stringify(body),
+  });
+
+  if (res.ok) {
+    window.location.href = '/entrar?msg=verify';
+  } else {
+    const data = await res.json();
+    errEl.textContent = data?.error?.message || 'Erro ao cadastrar.';
+    errEl.style.display = 'block';
+  }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Painel Parceiro — {{ partner.name }} — PetGo{% endblock %}
+{% block content %}
+<div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap">
+  <div>
+    <h1 style="font-size:1.3rem">{{ partner.name }}</h1>
+    <p style="color:var(--color-muted);font-size:.85rem">{{ partner.contact_email }}</p>
+  </div>
+  <span class="badge {% if partner.status == 'ACTIVE' %}badge--available{% else %}badge--rescue{% endif %}" style="margin-left:auto">
+    {{ partner.status }}
+  </span>
+</div>
+
+{% if partner.status != 'ACTIVE' %}
+<div class="alert alert--warning">Parceiro aguardando aprovação administrativa.</div>
+{% endif %}
+
+<h2 style="margin-bottom:1rem">📦 Benefícios cadastrados</h2>
+
+<div style="margin-bottom:1rem">
+  <a href="{{ url_for('web.new_reward', partner_id=partner.id) }}" class="btn btn--primary" style="font-size:.85rem">+ Novo benefício</a>
+</div>
+
+{% if rewards %}
+<div class="card">
+  <table style="width:100%;border-collapse:collapse;font-size:.9rem">
+    <thead>
+      <tr style="background:var(--color-bg)">
+        <th style="padding:.6rem 1rem;text-align:left;border-bottom:1px solid var(--color-border)">Nome</th>
+        <th style="padding:.6rem 1rem;text-align:center;border-bottom:1px solid var(--color-border)">Custo</th>
+        <th style="padding:.6rem 1rem;text-align:center;border-bottom:1px solid var(--color-border)">Estoque</th>
+        <th style="padding:.6rem 1rem;text-align:center;border-bottom:1px solid var(--color-border)">Status</th>
+        <th style="padding:.6rem 1rem;border-bottom:1px solid var(--color-border)">Ações</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rewards %}
+      <tr style="border-bottom:1px solid var(--color-border)">
+        <td style="padding:.6rem 1rem">{{ r.name }}</td>
+        <td style="padding:.6rem 1rem;text-align:center">{{ r.cost_points }} pts</td>
+        <td style="padding:.6rem 1rem;text-align:center">{{ r.stock }}</td>
+        <td style="padding:.6rem 1rem;text-align:center">
+          <span class="badge {% if r.active %}badge--available{% else %}badge--rescue{% endif %}">
+            {% if r.active %}Ativo{% else %}Inativo{% endif %}
+          </span>
+        </td>
+        <td style="padding:.6rem 1rem">
+          <a href="{{ url_for('web.validate_voucher') }}" class="btn btn--outline" style="font-size:.8rem">Usar voucher</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+  <p style="color:var(--color-muted)">Nenhum benefício cadastrado.</p>
+{% endif %}
+
+<h2 style="margin-top:2rem;margin-bottom:1rem">🎟 Validar voucher</h2>
+<div class="card" style="max-width:480px;padding:1.5rem">
+  <div id="voucher-success" class="alert alert--success" style="display:none"></div>
+  <div id="voucher-error" class="alert alert--danger" style="display:none"></div>
+  <div class="form-group">
+    <label for="voucher-token">Token do voucher</label>
+    <input type="text" id="voucher-token" placeholder="Cole o token aqui" style="font-family:monospace">
+  </div>
+  <button class="btn btn--primary" onclick="consumeVoucher()">Confirmar uso</button>
+</div>
+
+<script>
+async function consumeVoucher() {
+  const token = document.getElementById('voucher-token').value.trim();
+  const successEl = document.getElementById('voucher-success');
+  const errorEl = document.getElementById('voucher-error');
+  successEl.style.display = 'none';
+  errorEl.style.display = 'none';
+
+  if (!token) { errorEl.textContent = 'Informe o token.'; errorEl.style.display = 'block'; return; }
+
+  const res = await fetch('/api/v1/vouchers/consume', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
+    body: JSON.stringify({ voucher_token: token }),
+  });
+  const data = await res.json();
+
+  if (res.ok) {
+    successEl.textContent = `✅ Voucher #${data.id} utilizado com sucesso.`;
+    successEl.style.display = 'block';
+    document.getElementById('voucher-token').value = '';
+  } else {
+    errorEl.textContent = data?.error?.message || 'Voucher inválido ou já utilizado.';
+    errorEl.style.display = 'block';
+  }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Entrar — PetGo{% endblock %}
+{% block content %}
+<div style="max-width:440px;margin:2rem auto">
+  <h1 style="margin-bottom:1.5rem">Entrar</h1>
+  {% if request.args.get('msg') == 'verify' %}
+    <div class="alert alert--info">Verifique seu e-mail antes de continuar.</div>
+  {% endif %}
+  <form id="login-form" class="card" style="padding:1.5rem">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="form-group">
+      <label for="email">E-mail</label>
+      <input type="email" id="email" name="email" required autocomplete="email">
+    </div>
+    <div class="form-group">
+      <label for="password">Senha</label>
+      <input type="password" id="password" name="password" required autocomplete="current-password">
+    </div>
+    <div id="form-error" role="alert" style="display:none" class="alert alert--danger"></div>
+    <button type="submit" class="btn btn--primary" style="width:100%;margin-top:.5rem">Entrar</button>
+    <p style="margin-top:1rem;text-align:center;font-size:.9rem">
+      <a href="#">Esqueceu a senha?</a> &nbsp;|&nbsp; <a href="{{ url_for('web.register') }}">Cadastrar</a>
+    </p>
+  </form>
+</div>
+<script>
+document.getElementById('login-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const form = e.target;
+  const errEl = document.getElementById('form-error');
+  errEl.style.display = 'none';
+
+  const res = await fetch('/api/v1/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': form.csrf_token.value },
+    body: JSON.stringify({ email: form.email.value, password: form.password.value }),
+  });
+
+  if (res.ok) {
+    window.location.href = '/minha-conta';
+  } else {
+    errEl.textContent = 'Credenciais inválidas.';
+    errEl.style.display = 'block';
+  }
+});
+</script>
+{% endblock %}

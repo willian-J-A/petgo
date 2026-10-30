@@ -1,0 +1,18 @@
+[Unit]
+Description=PetGo Background Worker (outbox + e-mail + expiração)
+After=network.target mysql.service petgo-app.service
+Requires=mysql.service
+
+[Service]
+Type=simple
+User=petgo
+Group=petgo
+WorkingDirectory=/opt/petgo
+EnvironmentFile=/etc/petgo/petgo.env
+ExecStart=/opt/petgo/venv/bin/python -m worker.worker
+Restart=on-failure
+RestartSec=10
+# Dados e fila persistem no MySQL (EBS) após reboot — não em memória (R10)
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block title %}PetGo — Início{% endblock %}
+{% block body_class %}app-shell{% endblock %}
+
+{% block content %}
+<div class="dash">
+  <!-- Sidebar -->
+  <aside class="dash__side">
+    <div class="dash__brand">🐾 <span>PetGo</span></div>
+    <nav class="dash__nav">
+      <a class="is-active" href="{{ url_for('web.index') }}"><span class="ic">🏠</span> Início</a>
+      <a href="{{ url_for('web.adoption_list') }}"><span class="ic">🔍</span> Explorar</a>
+      <a href="{{ url_for('web.rescue_list') }}"><span class="ic">💚</span> Resgates</a>
+      <a href="{{ url_for('web.dashboard') if current_user.is_authenticated else url_for('web.login') }}"><span class="ic">📋</span> Minhas ações</a>
+      <a href="#"><span class="ic">💬</span> Mensagens</a>
+      <a href="#"><span class="ic">🗺️</span> Mapa</a>
+      <a href="{{ url_for('web.dashboard') if current_user.is_authenticated else url_for('web.login') }}"><span class="ic">👤</span> Perfil</a>
+    </nav>
+  </aside>
+
+  <!-- Conteúdo -->
+  <div class="dash__main">
+    <!-- Topbar -->
+    <header class="dash__top">
+      <div class="dash__search">
+        <span>🔎</span>
+        <input type="text" placeholder="Buscar animais, ONGs ou locais..." aria-label="Buscar">
+      </div>
+      <div class="dash__topright">
+        <span class="dash__bell">🔔</span>
+        <span class="dash__avatar" aria-hidden="true">🧑</span>
+      </div>
+    </header>
+
+    <div class="dash__grid">
+      <!-- Coluna principal -->
+      <div class="dash__col">
+        <!-- Hero -->
+        <section class="hero-card">
+          <div class="hero-card__text">
+            <h1>Olá, {{ user_name|capitalize }}!</h1>
+            <p>Juntos por mais vidas seguras.</p>
+            <div class="hero-card__ctas">
+              <a href="{{ url_for('web.adoption_list') }}" class="btn btn--primary">Ver animais para adoção →</a>
+              <a href="{{ url_for('web.rescue_list') }}" class="btn btn--ghost">Registrar resgate</a>
+            </div>
+          </div>
+          <div class="hero-card__art" aria-hidden="true">🐶</div>
+        </section>
+
+        <!-- Animais em destaque -->
+        <section class="panel">
+          <div class="panel__head">
+            <h2>Animais em destaque</h2>
+            <a href="{{ url_for('web.adoption_list') }}">Ver todos →</a>
+          </div>
+          <div class="pets-row">
+            {% for p in featured %}
+            <a class="petc" href="{{ url_for('web.pet_detail', pet_id=p.id) }}">
+              <div class="petc__img">{{ '🐱' if p.species == 'CAT' else '🐶' }}<span class="petc__fav">🤍</span></div>
+              <div class="petc__body">
+                <div class="petc__name">{{ p.name }}</div>
+                <div class="petc__meta">
+                  {{ 'Fêmea' if p.sex == 'F' else ('Macho' if p.sex == 'M' else '—') }}
+                  {% if p.age_months %} · {{ (p.age_months // 12) ~ ' ano' if p.age_months >= 12 else (p.age_months ~ ' meses') }}{% endif %}
+                </div>
+                <div class="petc__tags">
+                  {% for t in p.tags %}<span class="chip">{{ t }}</span>{% endfor %}
+                </div>
+              </div>
+            </a>
+            {% endfor %}
+          </div>
+        </section>
+
+        <!-- Minhas ações -->
+        <section class="panel">
+          <div class="panel__head">
+            <h2>Minhas ações</h2>
+            <a href="#">Ver todas →</a>
+          </div>
+          <ul class="timeline">
+            {% for a in actions %}
+            <li>
+              <span class="timeline__ic">{{ a.icon }}</span>
+              <div class="timeline__txt">
+                <strong>{{ a.title }}</strong>
+                <span>{{ a.sub }}</span>
+              </div>
+              <span class="timeline__date">{{ a.date }}</span>
+            </li>
+            {% endfor %}
+          </ul>
+        </section>
+      </div>
+
+      <!-- Coluna lateral direita -->
+      <div class="dash__col dash__col--right">
+        <!-- Stats -->
+        <section class="stats">
+          <div class="stat"><span class="stat__ic st-green">🐾</span><div><b>{{ stats.adoption }}</b><small>Animais para adoção</small></div></div>
+          <div class="stat"><span class="stat__ic st-red">❤</span><div><b>{{ stats.rescues_month }}</b><small>Resgates este mês</small></div></div>
+          <div class="stat"><span class="stat__ic st-amber">📍</span><div><b>{{ stats.occurrences }}</b><small>Ocorrências próximas</small></div></div>
+          <div class="stat"><span class="stat__ic st-blue">👥</span><div><b>{{ stats.partners }}</b><small>ONGs parceiras</small></div></div>
+        </section>
+
+        <!-- Ocorrências próximas -->
+        <section class="panel">
+          <div class="panel__head">
+            <h2>Ocorrências próximas</h2>
+            <a href="{{ url_for('web.rescue_list') }}">Ver mapa →</a>
+          </div>
+          <ul class="occ">
+            {% for o in occurrences %}
+            <li>
+              <span class="occ__img">{{ '🐱' if o.species == 'CAT' else '🐶' }}</span>
+              <div class="occ__txt">
+                <strong>{{ o.title }}</strong>
+                <span>📍 {{ o.place }}{% if o.distance %} · {{ o.distance }}{% endif %}</span>
+                <small>🕒 {{ o.when }}</small>
+              </div>
+              <a class="occ__go" href="{{ url_for('web.pet_detail', pet_id=o.id) }}">›</a>
+            </li>
+            {% endfor %}
+          </ul>
+        </section>
+
+        <!-- ONGs parceiras -->
+        <section class="panel">
+          <div class="panel__head">
+            <h2>ONGs parceiras</h2>
+            <a href="#">Ver todas →</a>
+          </div>
+          <div class="partners">
+            {% for n in partners %}
+            <div class="partner">
+              <span class="partner__logo">🐾</span>
+              <strong>{{ n.name }}</strong>
+              <small>{{ n.place }}</small>
+            </div>
+            {% endfor %}
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <a class="fab" href="{{ url_for('web.rescue_list') }}">➕ Registrar ocorrência</a>
+  </div>
+</div>
+{% endblock %}

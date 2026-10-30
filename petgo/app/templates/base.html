@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}PetGo{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+</head>
+<body class="{% block body_class %}{% endblock %}">
+  {% if self.body_class() != 'app-shell' %}
+  <header class="navbar" role="banner">
+    <a href="{{ url_for('web.index') }}" class="navbar__brand" aria-label="PetGo — página inicial">
+      🐾 PetGo
+    </a>
+    <nav aria-label="Navegação principal">
+      <a href="{{ url_for('web.rescue_list') }}">Resgates</a>
+      <a href="{{ url_for('web.adoption_list') }}">Adoções</a>
+      <a href="{{ url_for('web.rewards_list') }}">Benefícios</a>
+      {% if current_user.is_authenticated %}
+        <a href="{{ url_for('web.dashboard') }}">Minha conta</a>
+        <a href="{{ url_for('auth.logout') }}" aria-label="Sair da conta">Sair</a>
+      {% else %}
+        <a href="{{ url_for('web.login') }}">Entrar</a>
+        <a href="{{ url_for('web.register') }}" class="btn btn--primary">Cadastrar</a>
+      {% endif %}
+    </nav>
+  </header>
+  {% endif %}
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}
+      <div class="alert alert--{{ category }}" role="alert">{{ message }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  <main id="main-content" tabindex="-1">
+    {% block content %}{% endblock %}
+  </main>
+
+  {% if self.body_class() != 'app-shell' %}
+  <footer>
+    <p>PetGo &copy; 2026 — Dados pessoais tratados conforme <a href="/termos">Termos de uso</a>.</p>
+  </footer>
+  {% endif %}
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

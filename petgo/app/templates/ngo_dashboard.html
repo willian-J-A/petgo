@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Painel ONG — {{ ngo.name }} — PetGo{% endblock %}
+{% block content %}
+<div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap">
+  <div>
+    <h1 style="font-size:1.3rem">{{ ngo.name }}</h1>
+    <p style="color:var(--color-muted);font-size:.85rem">{{ ngo.city }}/{{ ngo.state }}</p>
+  </div>
+  <span class="badge {% if ngo.verification_status == 'APPROVED' %}badge--available{% elif ngo.verification_status == 'SUSPENDED' %}badge--rescue{% else %}badge--risk{% endif %}" style="margin-left:auto">
+    {{ ngo.verification_status }}
+  </span>
+</div>
+
+{% if ngo.verification_status != 'APPROVED' %}
+<div class="alert alert--warning">
+  Esta ONG ainda não está aprovada — atendimentos e troca de pontos ficam indisponíveis até a aprovação administrativa.
+</div>
+{% endif %}
+
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:1.25rem;margin-bottom:2rem">
+
+  <!-- Carteira institucional -->
+  <div class="card">
+    <div class="card__body">
+      <h2 style="font-size:1rem;margin-bottom:.5rem">💰 Carteira institucional</h2>
+      <p class="wallet-balance">{{ wallet.balance }} pts</p>
+      <p class="wallet-subtitle">saldo da ONG</p>
+      <a href="{{ url_for('web.ngo_wallet_entries', ngo_id=ngo.id) }}" class="btn btn--outline" style="margin-top:1rem;font-size:.85rem">Ver extrato</a>
+    </div>
+  </div>
+
+  <!-- Atendimentos ativos -->
+  <div class="card">
+    <div class="card__body">
+      <h2 style="font-size:1rem;margin-bottom:.75rem">🚑 Atendimentos</h2>
+      {% if rescues %}
+        <ul style="list-style:none;font-size:.9rem">
+          {% for r in rescues %}
+          <li style="padding:.3rem 0;border-bottom:1px solid var(--color-border)">
+            Pet #{{ r.pet_id }} —
+            <span class="badge" style="font-size:.75rem">{{ r.status }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p style="color:var(--color-muted);font-size:.9rem">Nenhum atendimento ativo.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Membros -->
+  <div class="card">
+    <div class="card__body">
+      <h2 style="font-size:1rem;margin-bottom:.75rem">👥 Membros</h2>
+      <ul style="list-style:none;font-size:.9rem">
+        {% for m in members %}
+        <li style="padding:.3rem 0;border-bottom:1px solid var(--color-border)">
+          {{ m.user.name }}
+          <span style="color:var(--color-muted);font-size:.8rem">· {{ m.role }}{% if not m.active %} (inativo){% endif %}</span>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+
+  <!-- Vouchers da ONG -->
+  <div class="card">
+    <div class="card__body">
+      <h2 style="font-size:1rem;margin-bottom:.5rem">🎟 Vouchers da ONG</h2>
+      {% if redemptions %}
+        <ul style="list-style:none;font-size:.9rem">
+          {% for r in redemptions %}
+          <li style="padding:.3rem 0;border-bottom:1px solid var(--color-border)">
+            Troca #{{ r.id }} — <span class="badge" style="font-size:.75rem">{{ r.status }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p style="color:var(--color-muted);font-size:.9rem">Nenhuma troca ainda.</p>
+      {% endif %}
+      {% if ngo.verification_status == 'APPROVED' %}
+        <a href="{{ url_for('web.rewards_list') }}" class="btn btn--primary" style="margin-top:1rem;font-size:.85rem">Resgatar benefício</a>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}

@@ -42,3 +42,12 @@ Thumbs.db
 instance/
 uploads/
 tmp/
+
+# Deploy AWS (artefatos locais — nao versionar)
+venv_aws/
+.env.aws
+*.db
+*.log
+piplist.txt
+seed.log
+home_rendered.html

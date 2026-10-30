@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block title %}Benefícios — PetGo{% endblock %}
+{% block content %}
+<h1 style="margin-bottom:.5rem">🎁 Benefícios disponíveis</h1>
+<p style="color:var(--color-muted);margin-bottom:1.5rem">Use seus pontos para resgatar prêmios dos nossos parceiros.</p>
+
+{% if current_user.is_authenticated %}
+<div style="background:var(--color-surface);border-radius:var(--radius);padding:.75rem 1rem;display:inline-flex;align-items:center;gap:.75rem;margin-bottom:1.5rem;box-shadow:var(--shadow)">
+  <span>Seu saldo:</span>
+  <strong style="color:var(--color-primary);font-size:1.1rem">{{ wallet.balance }} pts</strong>
+  <a href="{{ url_for('web.wallet_entries') }}" style="font-size:.8rem;color:var(--color-muted)">ver extrato</a>
+</div>
+{% endif %}
+
+{% if rewards %}
+<div class="pet-grid">
+  {% for r in rewards %}
+  <article class="card">
+    <div class="card__body">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.5rem">
+        <h2 class="card__title">{{ r.name }}</h2>
+        <span style="font-weight:800;color:var(--color-primary);white-space:nowrap">{{ r.cost_points }} pts</span>
+      </div>
+      {% if r.description %}
+        <p class="card__meta">{{ r.description[:100] }}{% if r.description|length > 100 %}…{% endif %}</p>
+      {% endif %}
+      {% if r.eligibility != 'BOTH' %}
+        <span class="badge" style="background:#e0e7ff;color:#3730a3;margin-bottom:.5rem">
+          {% if r.eligibility == 'NGO' %}Apenas ONGs{% else %}Apenas pessoas{% endif %}
+        </span>
+      {% endif %}
+      {% if r.fulfillment_terms %}
+        <details style="font-size:.8rem;color:var(--color-muted);margin:.5rem 0">
+          <summary style="cursor:pointer">Condições de uso</summary>
+          <p style="margin-top:.25rem">{{ r.fulfillment_terms }}</p>
+        </details>
+      {% endif %}
+      <div style="display:flex;gap:.5rem;margin-top:.75rem;align-items:center">
+        <span style="font-size:.8rem;color:var(--color-muted)">Estoque: {{ r.stock }}</span>
+        {% if current_user.is_authenticated and current_user.email_verified %}
+          <button
+            class="btn btn--primary"
+            style="font-size:.85rem;margin-left:auto"
+            onclick="openRedeem({{ r.id }}, {{ r.cost_points }}, '{{ r.name|e }}')"
+          >Resgatar</button>
+        {% elif current_user.is_authenticated %}
+          <span style="font-size:.8rem;color:var(--color-danger);margin-left:auto">E-mail não verificado</span>
+        {% else %}
+          <a href="{{ url_for('web.login') }}" class="btn btn--outline" style="font-size:.85rem;margin-left:auto">Entrar para resgatar</a>
+        {% endif %}
+      </div>
+    </div>
+  </article>
+  {% endfor %}
+</div>
+{% else %}
+  <p style="text-align:center;color:var(--color-muted);padding:3rem">Nenhum benefício disponível no momento.</p>
+{% endif %}
+
+<!-- Modal de confirmação -->
+<div id="redeem-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:var(--radius);padding:1.5rem;max-width:420px;width:90%;box-shadow:0 4px 24px rgba(0,0,0,.2)">
+    <h2 style="font-size:1.1rem;margin-bottom:.5rem" id="modal-title">Confirmar troca</h2>
+    <p id="modal-desc" style="color:var(--color-muted);font-size:.9rem;margin-bottom:1rem"></p>
+    <div id="modal-error" class="alert alert--danger" style="display:none"></div>
+    <div style="display:flex;gap:.75rem;justify-content:flex-end">
+      <button class="btn btn--outline" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn--primary" id="modal-confirm" onclick="confirmRedeem()">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let _redeemId = null, _redeemCost = 0;
+
+function openRedeem(id, cost, name) {
+  _redeemId = id; _redeemCost = cost;
+  document.getElementById('modal-title').textContent = `Resgatar: ${name}`;
+  document.getElementById('modal-desc').textContent = `Isso vai debitar ${cost} pontos da sua carteira. Confira as condições antes de confirmar.`;
+  document.getElementById('modal-error').style.display = 'none';
+  document.getElementById('redeem-modal').style.display = 'flex';
+}
+
+function closeModal() {
+  document.getElementById('redeem-modal').style.display = 'none';
+}
+
+async function confirmRedeem() {
+  const btn = document.getElementById('modal-confirm');
+  btn.disabled = true;
+  const idemKey = 'redeem-' + _redeemId + '-' + Date.now();
+
+  // Busca wallet_id do usuário
+  const meRes = await fetch('/api/v1/me');
+  const me = await meRes.json();
+
+  const walletRes = await fetch('/api/v1/me/wallet');
+  const wallet = await walletRes.json();
+
+  if (!wallet.wallet_id) {
+    showModalError('Você ainda não tem carteira (publique um pet primeiro).');
+    btn.disabled = false; return;
+  }
+
+  const res = await fetch(`/api/v1/rewards/${_redeemId}/redemptions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
+    body: JSON.stringify({ wallet_id: wallet.wallet_id, idempotency_key: idemKey }),
+  });
+
+  const data = await res.json();
+  if (res.ok) {
+    closeModal();
+    alert(`✅ Troca realizada! Seu voucher está em "Minha conta".`);
+    location.reload();
+  } else {
+    showModalError(data?.error?.message || 'Erro ao realizar troca.');
+    btn.disabled = false;
+  }
+}
+
+function showModalError(msg) {
+  const el = document.getElementById('modal-error');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+// Fecha modal ao clicar fora
+document.getElementById('redeem-modal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeModal();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title %}Painel Admin — PetGo{% endblock %}
+{% block content %}
+<h1 style="margin-bottom:1.5rem">🔧 Painel administrativo</h1>
+
+<!-- ONGs pendentes -->
+<section style="margin-bottom:2rem">
+  <h2 style="margin-bottom:1rem">🏢 ONGs pendentes de aprovação</h2>
+  {% if pending_ngos %}
+  <div class="card">
+    <table style="width:100%;border-collapse:collapse;font-size:.9rem">
+      <thead>
+        <tr style="background:var(--color-bg)">
+          <th style="padding:.6rem 1rem;text-align:left;border-bottom:1px solid var(--color-border)">#</th>
+          <th style="padding:.6rem 1rem;text-align:left;border-bottom:1px solid var(--color-border)">Nome</th>
+          <th style="padding:.6rem 1rem;text-align:left;border-bottom:1px solid var(--color-border)">CNPJ</th>
+          <th style="padding:.6rem 1rem;text-align:left;border-bottom:1px solid var(--color-border)">Cidade/UF</th>
+          <th style="padding:.6rem 1rem;border-bottom:1px solid var(--color-border)">Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for ngo in pending_ngos %}
+        <tr style="border-bottom:1px solid var(--color-border)">
+          <td style="padding:.6rem 1rem">{{ ngo.id }}</td>
+          <td style="padding:.6rem 1rem">{{ ngo.name }}</td>
+          <td style="padding:.6rem 1rem;font-family:monospace">{{ ngo.cnpj_normalized }}</td>
+          <td style="padding:.6rem 1rem">{{ ngo.city }}/{{ ngo.state }}</td>
+          <td style="padding:.6rem 1rem;display:flex;gap:.5rem">
+            <button class="btn btn--primary" style="font-size:.8rem" onclick="ngoDecision({{ ngo.id }},'APPROVED')">Aprovar</button>
+            <button class="btn btn--danger" style="font-size:.8rem" onclick="ngoDecision({{ ngo.id }},'REJECTED')">Rejeitar</button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <p style="color:var(--color-muted)">Nenhuma ONG pendente.</p>
+  {% endif %}
+</section>
+
+<!-- Pets com risco pendente -->
+<section style="margin-bottom:2rem">
+  <h2 style="margin-bottom:1rem">⚠ Pets com risco pendente</h2>
+  {% if risk_pets %}
+  <div class="card">
+    <table style="width:100%;border-collapse:collapse;font-size:.9rem">
+      <thead>
+        <tr style="background:var(--color-bg)">
+          <th style="padding:.6rem 1rem;text-align:left;border-bottom:1px solid var(--color-border)">Pet</th>
+          <th style="padding:.6rem 1rem;text-align:left;border-bottom:1px solid var(--color-border)">Espécie</th>
+          <th style="padding:.6rem 1rem;text-align:left;border-bottom:1px solid var(--color-border)">Cidade/UF</th>
+          <th style="padding:.6rem 1rem;text-align:left;border-bottom:1px solid var(--color-border)">Descrição do risco</th>
+          <th style="padding:.6rem 1rem;border-bottom:1px solid var(--color-border)">Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for pet in risk_pets %}
+        <tr style="border-bottom:1px solid var(--color-border)">
+          <td style="padding:.6rem 1rem"><a href="{{ url_for('web.pet_detail', pet_id=pet.id) }}">#{{ pet.id }}</a></td>
+          <td style="padding:.6rem 1rem">{{ pet.species }}</td>
+          <td style="padding:.6rem 1rem">{{ pet.city }}/{{ pet.state }}</td>
+          <td style="padding:.6rem 1rem">{{ (pet.risk_details or '')[:60] }}{% if pet.risk_details and pet.risk_details|length > 60 %}…{% endif %}</td>
+          <td style="padding:.6rem 1rem;display:flex;gap:.5rem">
+            <button class="btn btn--primary" style="font-size:.8rem" onclick="riskDecision({{ pet.id }},'APPROVED')">Aprovar</button>
+            <button class="btn btn--danger" style="font-size:.8rem" onclick="riskDecision({{ pet.id }},'REJECTED')">Rejeitar</button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <p style="color:var(--color-muted)">Nenhum risco pendente.</p>
+  {% endif %}
+</section>
+
+<!-- Parceiros pendentes -->
+<section style="margin-bottom:2rem">
+  <h2 style="margin-bottom:1rem">🤝 Parceiros pendentes</h2>
+  {% if pending_partners %}
+  <div class="card">
+    <table style="width:100%;border-collapse:collapse;font-size:.9rem">
+      <thead>
+        <tr style="background:var(--color-bg)">
+          <th style="padding:.6rem 1rem;text-align:left;border-bottom:1px solid var(--color-border)">Nome</th>
+          <th style="padding:.6rem 1rem;text-align:left;border-bottom:1px solid var(--color-border)">E-mail</th>
+          <th style="padding:.6rem 1rem;border-bottom:1px solid var(--color-border)">Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in pending_partners %}
+        <tr style="border-bottom:1px solid var(--color-border)">
+          <td style="padding:.6rem 1rem">{{ p.name }}</td>
+          <td style="padding:.6rem 1rem">{{ p.contact_email }}</td>
+          <td style="padding:.6rem 1rem;display:flex;gap:.5rem">
+            <button class="btn btn--primary" style="font-size:.8rem" onclick="partnerDecision({{ p.id }},'ACTIVE')">Ativar</button>
+            <button class="btn btn--danger" style="font-size:.8rem" onclick="partnerDecision({{ p.id }},'SUSPENDED')">Suspender</button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <p style="color:var(--color-muted)">Nenhum parceiro pendente.</p>
+  {% endif %}
+</section>
+
+<div id="admin-feedback" class="alert" style="display:none"></div>
+
+<script>
+async function adminPost(url, body) {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  const fb = document.getElementById('admin-feedback');
+  if (res.ok) {
+    fb.className = 'alert alert--success';
+    fb.textContent = 'Ação realizada com sucesso.';
+  } else {
+    fb.className = 'alert alert--danger';
+    fb.textContent = data?.error?.message || 'Erro ao executar ação.';
+  }
+  fb.style.display = 'block';
+  setTimeout(() => location.reload(), 1200);
+}
+
+function ngoDecision(id, decision) {
+  const reason = decision === 'REJECTED' ? prompt('Motivo da rejeição:') : null;
+  adminPost(`/api/v1/admin/ngos/${id}/decision`, { decision, reason });
+}
+
+function riskDecision(id, decision) {
+  const reason = prompt(`Justificativa (${decision}):`);
+  adminPost(`/api/v1/admin/pets/${id}/risk-decision`, { decision, reason });
+}
+
+function partnerDecision(id, decision) {
+  adminPost(`/api/v1/admin/partners/${id}/decision`, { decision });
+}
+</script>
+{% endblock %}
